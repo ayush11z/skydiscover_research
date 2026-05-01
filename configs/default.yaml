@@ -34,5 +34,8 @@ evaluator:
   cascade_evaluation: false
 
 # Generation settings
+# diff_based_generation: LLM proposes changes as SEARCH/REPLACE blocks (default).
+# Set to false for full program replacement — recommended for smaller/local models
+# (e.g. Ollama) that don't reliably produce the SEARCH/REPLACE format.
 diff_based_generation: true
 max_solution_length: 60000

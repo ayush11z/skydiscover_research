@@ -6,6 +6,7 @@ import asyncio
 import concurrent.futures
 import hashlib
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
@@ -55,6 +56,8 @@ class EvoxContextBuilder(DefaultContextBuilder):
             )
 
         self._problem_context_summary_cache: Dict[str, str] = {}
+        self.output_dir: str = None
+        self._guide_prompt_counter = 0
 
         evox_search_sys_prompt_path = (
             Path(__file__).parent.parent.parent
@@ -88,13 +91,27 @@ class EvoxContextBuilder(DefaultContextBuilder):
             sections[current_section] = "\n".join(current_lines).strip()
         return sections
 
+    def _save_guide_prompt(self, system_message: str, user_message: str) -> None:
+        run_name = os.path.basename(self.output_dir) if self.output_dir else "default"
+        self._guide_prompt_counter += 1
+        prompt_dir = Path(f"outputs/prompt_logs/{run_name}/guide_llm")
+        prompt_dir.mkdir(parents=True, exist_ok=True)
+        prompt_file = prompt_dir / f"prompt_call_{self._guide_prompt_counter:03d}.txt"
+        with open(prompt_file, "w") as f:
+            f.write("--- SYSTEM ---\n")
+            f.write(system_message)
+            f.write("\n\n--- USER ---\n")
+            f.write(user_message)
+
     async def _generate_stats_insight_async(self, stats_text: str) -> str:
         """Generate stats insight via LLM."""
         if not stats_text:
             return ""
+        system_msg = self.template_manager.get_template("stats_insight_system_message")
         user_content = f"Population Statistics:\n\n{stats_text}"
+        self._save_guide_prompt(system_msg, user_content)
         result = await self.summary_llm.generate(
-            system_message=self.template_manager.get_template("stats_insight_system_message"),
+            system_message=system_msg,
             messages=[{"role": "user", "content": user_content}],
         )
         return result.text
@@ -115,10 +132,10 @@ class EvoxContextBuilder(DefaultContextBuilder):
             evaluator_context=evaluator_context,
         )
 
+        system_msg = self.template_manager.get_template("problem_context_summary_system_message")
+        self._save_guide_prompt(system_msg, problem_context_input)
         result = await self.summary_llm.generate(
-            system_message=self.template_manager.get_template(
-                "problem_context_summary_system_message"
-            ),
+            system_message=system_msg,
             messages=[{"role": "user", "content": problem_context_input}],
         )
 
@@ -127,6 +144,7 @@ class EvoxContextBuilder(DefaultContextBuilder):
 
     async def _generate_batch_summaries_async(self, batch_user_message: str) -> str:
         """Generate batch summaries via LLM."""
+        self._save_guide_prompt(self._batch_sections["SYSTEM"], batch_user_message)
         result = await self.summary_llm.generate(
             system_message=self._batch_sections["SYSTEM"],
             messages=[{"role": "user", "content": batch_user_message}],

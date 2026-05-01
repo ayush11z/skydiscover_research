@@ -49,6 +49,10 @@ class CoEvolutionController(DiscoveryController):
         self._init_output_dir(controller_input)
 
     def _init_search_evolution_controller(self) -> None:
+        """This creates a second DiscoveryController — one for evolving search strategies. So have two controllers running:
+            self — evolves circle packing solutions
+            self.search_controller — evolves search strategies"""
+        
         """Initialize search controller, scorer, and load initial algorithm."""
         db_cfg = self.config.search.database
         if not db_cfg.database_file_path:
@@ -96,6 +100,9 @@ class CoEvolutionController(DiscoveryController):
         self.search_outputs_dir = os.path.join(base_dir, "search")
         os.makedirs(self.search_outputs_dir, exist_ok=True)
 
+
+    """run one solution iteration, check if stuck, 
+    if stuck evolve the search strategy, repeat until done."""
     async def run_discovery(
         self,
         start_iteration: int,
@@ -171,6 +178,13 @@ class CoEvolutionController(DiscoveryController):
         logger.info(f"[SOLUTION EVOLUTION] Evolution completed: {self.database.name}")
         return self.database.get_best_program()
 
+
+    """
+    Every iteration, compare current best score to previous best
+    If improved by more than 0.01 then reset stagnant counter
+    If not improved then increment stagnant counter
+    If stagnant counter reaches switch_interval (5 for 50 iterations) → trigger outer loop
+    """
     def _should_evolve_search(self) -> bool:
         """Check if it's time to evolve the search algorithm (stagnation-based)."""
         current = self._get_best_score()
@@ -190,6 +204,12 @@ class CoEvolutionController(DiscoveryController):
 
         return False
 
+
+    """
+    This is the entry point for the outer loop. It
+    First time — initializes the search program database
+    Subsequent times — scores the previous strategy, then generates a new one
+    """
     async def _evolve_search(self, solution_iter: int) -> None:
         """Handle search evolution: score previous algorithm, generate and switch to new one."""
 
@@ -266,6 +286,11 @@ class CoEvolutionController(DiscoveryController):
         self._reset_search_window()
         await self._generate_and_validate_search_algorithm(solution_iter)
 
+    """
+    This is where the guide LLM (qwen in your case) is asked to write a new EvolvedProgramDatabase class. 
+    It passes the current population statistics so the LLM knows what's happening
+    how many programs exist, what scores they got, how much stagnation occurred.
+    """
     async def _generate_variation_operators(self) -> None:
         """Generate diverge/refine labels once and assign to the current database."""
         if self._diverge_label and self._refine_label:
@@ -386,6 +411,11 @@ class CoEvolutionController(DiscoveryController):
             ),
         }
 
+    """
+    The new strategy is actual Python code that gets executed dynamically
+    All existing solutions are migrated to the new database — nothing is lost when switching strategies
+    The old database is saved as _fallback_database in case the new strategy crashes
+    """
     def _switch_to_new_search_algorithm(self, result: SerializableResult) -> bool:
         """Switch solution database to use the new search algorithm."""
         child_dict = result.child_program_dict or {}

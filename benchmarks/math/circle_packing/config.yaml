@@ -1,7 +1,7 @@
 # Math benchmark: circle_packing
 # Usage: skydiscover-run initial_program.py evaluator.py -c config.yaml -s <strategy>
 language: python
-diff_based_generation: true
+diff_based_generation: false
 max_iterations: 100
 checkpoint_interval: 10
 max_solution_length: 60000

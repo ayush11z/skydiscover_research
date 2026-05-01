@@ -872,8 +872,13 @@ def bridge_provider_env(config: Config) -> None:
     # Always ensure OPENAI_API_KEY is set — many tools (ShinkaEvolve, etc.) expect it
     os.environ.setdefault("OPENAI_API_KEY", model.api_key)
 
-    # Set OPENAI_API_BASE so backends that check it can find the endpoint
-    if model.api_base:
+    # Set OPENAI_API_BASE only for non-default endpoints.  The default OpenAI
+    # URL is already known to every OpenAI-compatible backend, so publishing
+    # it here would silently override inner configs (e.g. search.yaml) that
+    # use a different endpoint (e.g. a local Ollama server) when their own
+    # load_config() call reads OPENAI_API_BASE from the environment.
+    _openai_default = _PROVIDERS["openai"][0].rstrip("/")
+    if model.api_base and model.api_base.rstrip("/") != _openai_default:
         os.environ.setdefault("OPENAI_API_BASE", model.api_base)
 
 

@@ -28,3 +28,4 @@ evaluator:
   - 0.3
   - 0.6
 
+diff_based_generation: false

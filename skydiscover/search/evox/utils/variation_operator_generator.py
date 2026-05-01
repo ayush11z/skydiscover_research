@@ -577,7 +577,7 @@ def main():
 
     model_cfg = LLMModelConfig(
         name=DEFAULT_CLI_MODEL,
-        api_base="https://api.openai.com/v1",
+        api_base=os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1",
         api_key=os.environ.get("OPENAI_API_KEY", ""),
         max_tokens=DEFAULT_CLI_MAX_TOKENS,
         timeout=DEFAULT_CLI_TIMEOUT,

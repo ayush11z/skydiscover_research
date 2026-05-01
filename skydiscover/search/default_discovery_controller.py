@@ -11,6 +11,7 @@ import logging
 import multiprocessing as mp
 import os
 import time
+from pathlib import Path
 import uuid
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -104,6 +105,7 @@ class DiscoveryController:
         self.monitor_callback: Optional[Callable] = None
         self.feedback_reader: Optional[Any] = None
         self._prompt_context: Dict[str, Any] = {}
+        self._solution_prompt_counter = 0
 
         # Load evaluator/task description and inject into system message so
         # the LLM knows what problem to solve (especially for from-scratch).
@@ -155,8 +157,22 @@ class DiscoveryController:
             self.context_builder = EvoxContextBuilder(self.config)
             template_name = "search_evolution_user_message"
             self.context_builder.set_templates(user_template=template_name)
+            self.context_builder.output_dir = self.output_dir
         else:
             self.context_builder = DefaultContextBuilder(self.config)
+
+    def _save_solution_prompt(self, system_message: str, user_message: str, iteration: int) -> None:
+        run_name = os.path.basename(self.output_dir) if self.output_dir else "default"
+        self._solution_prompt_counter += 1
+        prompt_dir = Path(f"outputs/prompt_logs/{run_name}/solution_llm")
+        prompt_dir.mkdir(parents=True, exist_ok=True)
+        prompt_file = prompt_dir / f"prompt_call_{self._solution_prompt_counter:03d}_iter{iteration}.txt"
+        user_msg_str = user_message if isinstance(user_message, str) else str(user_message)
+        with open(prompt_file, "w") as f:
+            f.write("--- SYSTEM ---\n")
+            f.write(system_message)
+            f.write("\n\n--- USER ---\n")
+            f.write(user_msg_str)
 
     async def _call_llm(self, system_message: str, user_message: str, **kwargs) -> LLMResponse:
         """Call the LLM, using agentic mode if enabled (text-only)."""
@@ -388,6 +404,7 @@ class DiscoveryController:
 
             llm_generation_time = 0.0
             llm_start = time.time()
+            self._save_solution_prompt(prompt["system"], prompt["user"], iteration)
             result = await self._call_llm(prompt["system"], prompt["user"])
             llm_generation_time = time.time() - llm_start
             llm_response = result.text
@@ -524,6 +541,7 @@ class DiscoveryController:
                         user_content = build_image_content(
                             prompt["user"], parent, context_programs_dict
                         )
+                        self._save_solution_prompt(prompt["system"], user_content, iteration)
                         result = await self._call_llm(
                             prompt["system"],
                             user_content,
@@ -542,6 +560,7 @@ class DiscoveryController:
                             changes_summary = None
                             parse_error = "VLM did not generate an image"
                     else:
+                        self._save_solution_prompt(prompt["system"], prompt["user"], iteration)
                         result = await self._call_llm(prompt["system"], prompt["user"])
                         llm_response = result.text
                     llm_generation_time = time.time() - llm_start
