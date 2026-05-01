@@ -149,6 +149,17 @@ READING THE POPULATION:
 ========================
 CONSTRAINTS
 ========================
+CRITICAL ATTRIBUTE RULES - these are the ONLY valid ways to access program data:
+- To get a program's score: score = program.metrics.get('combined_score', 0.0)
+  - NEVER use program.combined_score, program.score, or program.best_score - these do not exist
+- To get the database's best score: use max(p.metrics.get('combined_score', 0.0) for p in self.programs.values()) if self.programs else 0.0
+  - NEVER use self.best_score or self.best_program - these do not exist on EvolvedProgramDatabase
+- Program objects are NOT hashable - NEVER put them in sets or use them as dict keys
+  - ALWAYS use program.id (a string) for tracking and deduplication
+- When accessing any metric, ALWAYS use: isinstance(val, (int, float)) check before arithmetic
+- context_programs_dict MUST return at most num_context_programs items total
+  - ALWAYS use: examples = examples[:num_context_programs]
+
 - DO NOT change class names (EvolvedProgramDatabase, EvolvedProgram) or method signatures. Preserve all imports and dataclass definitions.
 - All variables used in add() or sample() MUST be initialized in __init__ with safe default values to avoid runtime errors.
 - DO NOT modify, overwrite, or recompute any existing values in program.metrics.

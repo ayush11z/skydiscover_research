@@ -1,4 +1,5 @@
 import inspect
+import re
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Tuple
@@ -11,6 +12,77 @@ from skydiscover.search.utils.discovery_utils import load_database_from_file
 def _error_response(error_message: str) -> Dict[str, Any]:
     """Create a standardized error response dictionary."""
     return {"validity": 0, "error": error_message, "combined_score": None}
+
+
+# Fix 2: forbidden patterns that indicate the LLM accessed non-existent program attributes
+_FORBIDDEN_SCORE_VARS = re.compile(
+    r'\b(program|prog\w*|parent|child|p)\s*\.\s*score\b'
+)
+
+
+def _check_forbidden_attributes(code: str) -> List[str]:
+    """
+    Scan generated code for forbidden attribute accesses before executing it.
+    Returns a list of human-readable violation descriptions.
+    """
+    violations: List[str] = []
+    for line_num, line in enumerate(code.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            continue
+
+        # .combined_score used as a direct attribute (not through .metrics.get/[])
+        if re.search(r'\.\s*combined_score\b', stripped):
+            if not re.search(
+                r'metrics\s*\.?\s*get\s*\(\s*[\'"]combined_score', stripped
+            ) and not re.search(r'metrics\s*\[\s*[\'"]combined_score', stripped):
+                violations.append(
+                    f"line {line_num}: `.combined_score` — "
+                    f"use program.metrics.get('combined_score', 0.0) instead"
+                )
+
+        # .best_score — never valid on program or database objects
+        if re.search(r'\.\s*best_score\b', stripped):
+            violations.append(
+                f"line {line_num}: `.best_score` — self.best_score does not exist; "
+                f"use max(p.metrics.get('combined_score', 0.0) for p in "
+                f"self.programs.values()) if self.programs else 0.0"
+            )
+
+        # .best_program — never valid
+        if re.search(r'\.\s*best_program\b', stripped):
+            violations.append(
+                f"line {line_num}: `.best_program` — "
+                f"self.best_program does not exist on EvolvedProgramDatabase"
+            )
+
+        # program.score / p.score etc. (direct .score on program-like vars)
+        m = _FORBIDDEN_SCORE_VARS.search(stripped)
+        if m:
+            if not re.search(
+                r'metrics\s*\.?\s*get\s*\(\s*[\'"]score', stripped
+            ) and not re.search(r'metrics\s*\[\s*[\'"]score', stripped):
+                violations.append(
+                    f"line {line_num}: `{m.group(1)}.score` — "
+                    f"program objects have no .score attribute; "
+                    f"use program.metrics.get('combined_score', 0.0)"
+                )
+
+    return violations
+
+
+def _format_attribute_error(e: AttributeError, context: str) -> str:
+    """Format an AttributeError with actionable details about the likely cause."""
+    attr_name = getattr(e, 'name', None)
+    if attr_name:
+        return (
+            f"AttributeError in {context}: attribute '{attr_name}' does not exist. "
+            f"Likely cause: accessing program.{attr_name} directly instead of "
+            f"program.metrics.get('{attr_name}', 0.0), or using self.best_score/"
+            f"self.best_program which do not exist on EvolvedProgramDatabase. "
+            f"Full error: {e}"
+        )
+    return f"AttributeError in {context}: {e}"
 
 
 def _verify_metrics_preserved(
@@ -75,6 +147,21 @@ def evaluate(program_path: str, fast_mode: bool = False) -> Dict[str, Any]:
     NUM_MIGRATION_SAMPLES = 1 if fast_mode else 3
 
     try:
+        # Fix 2: static analysis — scan file for forbidden attribute accesses before any execution
+        try:
+            with open(program_path, "r") as _f:
+                _code_content = _f.read()
+        except Exception as e:
+            return _error_response(f"Failed to read program file: {str(e)}")
+
+        _violations = _check_forbidden_attributes(_code_content)
+        if _violations:
+            return _error_response(
+                "Forbidden attribute accesses detected in generated code. "
+                "Fix these before retrying:\n"
+                + "\n".join(f"  - {v}" for v in _violations)
+            )
+
         try:
             database_class, program_class = load_database_from_file(program_path)
         except Exception as e:
@@ -337,6 +424,8 @@ def evaluate(program_path: str, fast_mode: bool = False) -> Dict[str, Any]:
                     )
                     if error_msg:
                         return _error_response(error_msg)
+        except AttributeError as e:
+            return _error_response(_format_attribute_error(e, "add/sample test"))
         except Exception as e:
             return _error_response(f"Failed to add 10 programs and sample: {str(e)}")
 
@@ -493,6 +582,10 @@ def evaluate(program_path: str, fast_mode: bool = False) -> Dict[str, Any]:
                     )
                     if error_msg:
                         return _error_response(error_msg)
+        except AttributeError as e:
+            return _error_response(
+                _format_attribute_error(e, "error-string metrics test")
+            )
         except Exception as e:
             return _error_response(
                 f"Failed to handle programs with error strings in metrics: {str(e)}"
@@ -616,6 +709,8 @@ def evaluate(program_path: str, fast_mode: bool = False) -> Dict[str, Any]:
                             return _error_response(
                                 f"Migration test: context program must be a Program, got {type(prog)}"
                             )
+        except AttributeError as e:
+            return _error_response(_format_attribute_error(e, "migration test"))
         except Exception as e:
             if "No candidates to sample" in str(e):
                 return _error_response(
@@ -686,6 +781,10 @@ def evaluate(program_path: str, fast_mode: bool = False) -> Dict[str, Any]:
                         f"({max_possible} given {len(db.programs)} programs in database) "
                         f"for num_context_programs={requested_num}."
                     )
+        except AttributeError as e:
+            return _error_response(
+                _format_attribute_error(e, "num_context_programs contract test")
+            )
         except Exception as e:
             return _error_response(
                 f"Failed to verify num_context_programs contract in sample(): {str(e)}"
