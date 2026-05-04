@@ -52,6 +52,7 @@ class Runner:
             self.name, initial_program_path or "scratch"
         )
         os.makedirs(self.output_dir, exist_ok=True)
+        os.environ["SKYDISCOVER_RUN_NAME"] = os.path.basename(self.output_dir)
         self._setup_logging()
 
         # Load the initial program (can be optional)

@@ -57,7 +57,6 @@ class EvoxContextBuilder(DefaultContextBuilder):
 
         self._problem_context_summary_cache: Dict[str, str] = {}
         self.output_dir: str = None
-        self._guide_prompt_counter = 0
 
         evox_search_sys_prompt_path = (
             Path(__file__).parent.parent.parent
@@ -92,16 +91,14 @@ class EvoxContextBuilder(DefaultContextBuilder):
         return sections
 
     def _save_guide_prompt(self, system_message: str, user_message: str) -> None:
-        run_name = os.path.basename(self.output_dir) if self.output_dir else "default"
-        self._guide_prompt_counter += 1
-        prompt_dir = Path(f"outputs/prompt_logs/{run_name}/guide_llm")
-        prompt_dir.mkdir(parents=True, exist_ok=True)
-        prompt_file = prompt_dir / f"prompt_call_{self._guide_prompt_counter:03d}.txt"
-        with open(prompt_file, "w") as f:
-            f.write("--- SYSTEM ---\n")
-            f.write(system_message)
-            f.write("\n\n--- USER ---\n")
-            f.write(user_message)
+        _guide_dir = Path("outputs/prompt_logs") / os.environ.get("SKYDISCOVER_RUN_NAME", "unknown_run") / "guide_llm"
+        _guide_dir.mkdir(parents=True, exist_ok=True)
+        _call_num = len(list(_guide_dir.glob("prompt_call_*.txt"))) + 1
+        with open(_guide_dir / f"prompt_call_{_call_num:03d}.txt", "w") as _f:
+            _f.write("--- SYSTEM ---\n")
+            _f.write(system_message or "")
+            _f.write("\n\n--- USER ---\n")
+            _f.write(user_message or "")
 
     async def _generate_stats_insight_async(self, stats_text: str) -> str:
         """Generate stats insight via LLM."""
