@@ -81,6 +81,9 @@ class ProgramDatabase(ABC):
     - Sample a program and context programs to learn from past experiences for the next discovery step
     """
 
+    DIVERGE_LABEL: str = "diverge"
+    REFINE_LABEL: str = "refine"
+
     def __init__(self, name: str, config: DatabaseConfig, **kwargs: Any):
         self.name = name
         self.config = config
@@ -561,3 +564,7 @@ class ProgramDatabase(ABC):
             "top_solution_scores": top_scores,
             "recent_solution_stats": recent_stats,
         }
+
+
+# Alias used by the guide LLM and evolved database implementations.
+EvolvedProgram = Program

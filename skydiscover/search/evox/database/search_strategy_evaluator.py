@@ -157,6 +157,8 @@ def evaluate(program_path: str, fast_mode: bool = False) -> Dict[str, Any]:
         _violations = _check_forbidden_attributes(_code_content)
         if _violations:
             return _error_response(
+                "REMINDER: program objects have NO .score, .combined_score, or .best_score attributes. "
+                "You MUST use program.metrics.get('combined_score', 0.0) instead.\n"
                 "Forbidden attribute accesses detected in generated code. "
                 "Fix these before retrying:\n"
                 + "\n".join(f"  - {v}" for v in _violations)

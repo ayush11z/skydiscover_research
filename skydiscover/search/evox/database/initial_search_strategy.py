@@ -44,7 +44,7 @@ class EvolvedProgramDatabase(ProgramDatabase):
         self, num_context_programs: Optional[int] = 4, **kwargs
     ) -> Tuple[Dict[str, EvolvedProgram], Dict[str, List[EvolvedProgram]]]:
         """
-        Picks a random parent and set of context programs.
+        Rule 1: Picks a random parent and set of context programs.
         """
         candidates = list(self.programs.values())
 
@@ -52,7 +52,9 @@ class EvolvedProgramDatabase(ProgramDatabase):
             raise ValueError("No candidates available for sampling")
 
         parent = random.choice(candidates)
-
+        
+        """Rule 2: Inspiration set: 
+        Pick 4 more random programs to show the LLM as additional context/examples."""
         sample_size = min(num_context_programs + 1, len(candidates))
         examples = random.sample(candidates, sample_size)
 

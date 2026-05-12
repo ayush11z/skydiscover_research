@@ -36,6 +36,17 @@ prompt:
     Focus on designing an explicit constructor that places each circle in a specific position, rather than an iterative search
     algorithm.
 
+
+    CRITICAL CONSTRAINTS to avoid common errors:
+
+    - n=26 circles means valid indices are 0 to 25. Never use range(x, y) where y > 26.
+
+    - Always call compute_max_radii(centers) AFTER defining the function, not before.
+
+    - After np.clip(centers, ...), radii must be recomputed — hardcoded radii will cause overlaps.
+
+    - Centers placed at distance r from [0.5, 0.5] must satisfy: 0.5 - r >= 0 and 0.5 + r <= 1.
+
     '
 evaluator:
   timeout: 360

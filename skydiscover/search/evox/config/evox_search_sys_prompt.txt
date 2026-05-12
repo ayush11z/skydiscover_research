@@ -43,8 +43,9 @@ Important Program fields:
 - iteration_found: int
 - parent_id: str
     - ID of the parent program it was mutated from 
-- other_context_ids: List[str]
-    - IDs of other programs used as context for this program generation 
+- other_context_ids: Optional[List[str]]
+    - IDs of other programs used as context for this program generation (may be None for initial programs)
+    - ALWAYS guard iteration: use `for ctx_id in (program.other_context_ids or []):`
 - parent_info: Tuple[str, str]
     - (label, id) tuple tracking the label assigned to the parent for generating this program.
     - If label is non-empty, it indicates either `self.DIVERGE_LABEL` or `self.REFINE_LABEL` was used.
@@ -70,9 +71,17 @@ REQUIRED METHODS
 ========================
 You MUST implement the following methods exactly (do not change signatures):
 
-1) add 
+0) __init__
+    def __init__(self, name: str, config: DatabaseConfig, **kwargs: Any):
+        super().__init__(name, config, **kwargs)
+        # Initialize your custom state here (e.g. counters, history lists, etc.)
+
+The __init__ MUST accept `name` and `config` as the first two parameters and call
+super().__init__(name, config, **kwargs) before any custom initialization.
+
+1) add
     def add(self, program: EvolvedProgram, iteration: Optional[int] = None, **kwargs: Any) -> str
-    
+
 The add() method controls how programs enter and remain in the population.
 
 2) sample
@@ -149,7 +158,19 @@ READING THE POPULATION:
 ========================
 CONSTRAINTS
 ========================
-CRITICAL ATTRIBUTE RULES - these are the ONLY valid ways to access program data:
+CRITICAL ATTRIBUTE RULES — VIOLATION WILL CAUSE IMMEDIATE REJECTION:
+
+❌ WRONG — these attributes do NOT exist:
+    score = program.combined_score
+    score = program.score
+    score = p.score
+    best = self.best_score
+    prog = self.best_program
+
+✅ CORRECT — only these work:
+    score = program.metrics.get('combined_score', 0.0)
+    best = max(p.metrics.get('combined_score', 0.0) for p in self.programs.values()) if self.programs else 0.0
+
 - To get a program's score: score = program.metrics.get('combined_score', 0.0)
   - NEVER use program.combined_score, program.score, or program.best_score - these do not exist
 - To get the database's best score: use max(p.metrics.get('combined_score', 0.0) for p in self.programs.values()) if self.programs else 0.0
@@ -161,6 +182,10 @@ CRITICAL ATTRIBUTE RULES - these are the ONLY valid ways to access program data:
   - ALWAYS use: examples = examples[:num_context_programs]
 
 - DO NOT change class names (EvolvedProgramDatabase, EvolvedProgram) or method signatures. Preserve all imports and dataclass definitions.
+- __init__ MUST have signature `def __init__(self, name: str, config: DatabaseConfig, **kwargs: Any):` and MUST call `super().__init__(name, config, **kwargs)` as its first statement.
+- Optional Program fields (other_context_ids, parent_info, context_info) may be None. NEVER iterate directly:
+  - WRONG: `for ctx_id in program.other_context_ids:`
+  - CORRECT: `for ctx_id in (program.other_context_ids or []):`
 - All variables used in add() or sample() MUST be initialized in __init__ with safe default values to avoid runtime errors.
 - DO NOT modify, overwrite, or recompute any existing values in program.metrics.
     - Existing metrics (e.g., "combined_score") MUST remain unchanged.
