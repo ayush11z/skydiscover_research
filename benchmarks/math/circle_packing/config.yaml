@@ -6,9 +6,10 @@ max_iterations: 100
 checkpoint_interval: 10
 max_solution_length: 60000
 llm:
-  api_base: https://api.openai.com/v1
+  api_base: http://127.0.0.1:11434/v1
+  api_key: "ollama"
   models:
-    - name: "gpt-5"
+    - name: "gemma3:12b"
       weight: 1.0
   max_tokens: 16384
   timeout: 600

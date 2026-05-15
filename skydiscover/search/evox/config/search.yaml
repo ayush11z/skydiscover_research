@@ -7,7 +7,7 @@ log_level: "INFO"
 
 llm:
   models:
-    - name: "gemma3:12b"
+    - name: "qwen2.5-coder:14b"
       weight: 1.0
   api_base: "http://127.0.0.1:11434/v1"
   api_key: "ollama"
@@ -16,7 +16,7 @@ llm:
   max_tokens: 32000
   timeout: 600
   guide_models:
-    - name: "gemma3:12b"
+    - name: "qwen2.5-coder:14b"
       api_base: "http://127.0.0.1:11434/v1"
       api_key: "ollama"
       max_tokens: 8000
