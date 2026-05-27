@@ -45,6 +45,10 @@ external = [
     "gepa[full]",
     "litellm>=1.81",  # gepa[full] needs litellm, but uv override-dependencies strips the [full] extra
 ]
+observability = [
+    "langfuse>=2.0.0",
+    "viztracer>=0.16.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",

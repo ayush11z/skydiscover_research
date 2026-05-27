@@ -22,6 +22,7 @@ from skydiscover.context_builder.evox import EvoxContextBuilder
 from skydiscover.evaluation import create_evaluator
 from skydiscover.evaluation.llm_judge import LLMJudge
 from skydiscover.llm.base import LLMResponse
+from skydiscover.llm.langfuse_tracer import reset_llm_context, set_llm_context
 from skydiscover.llm.llm_pool import LLMPool
 from skydiscover.search.base_database import Program, ProgramDatabase
 from skydiscover.search.utils.discovery_utils import SerializableResult, build_image_content
@@ -457,6 +458,7 @@ class DiscoveryController:
         retry_times: int = 1,
     ) -> SerializableResult:
         """Run a single generate-evaluate iteration."""
+        _ctx_token = set_llm_context("inner", iteration)
         try:
             if not self.database.programs:
                 return await self._run_from_scratch_iteration(iteration)
@@ -758,6 +760,8 @@ class DiscoveryController:
         except Exception as e:
             logger.exception(f"Error in iteration {iteration}")
             return SerializableResult(error=str(e), iteration=iteration, attempts_used=1)
+        finally:
+            reset_llm_context(_ctx_token)
 
     # ------------------------------------------------------------------
     # Prompt / parsing / program creation helpers

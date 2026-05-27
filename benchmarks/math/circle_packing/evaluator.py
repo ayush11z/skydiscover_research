@@ -272,6 +272,7 @@ def evaluate(program_path):
             "validity": 0.0,
             "eval_time": 0.0,
             "combined_score": 0.0,
+            "error": str(e),
         }
 
 

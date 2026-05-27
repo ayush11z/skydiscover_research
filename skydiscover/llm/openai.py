@@ -5,11 +5,18 @@ import base64
 import logging
 import os
 import tempfile
+import time
 import uuid as _uuid
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 import openai
+
+from skydiscover.llm.langfuse_tracer import (
+    LangFuseTracer,
+    _infer_loop_type,
+    get_llm_context,
+)
 
 from skydiscover.config import LLMModelConfig
 from skydiscover.llm.base import LLMInterface, LLMResponse
@@ -160,9 +167,26 @@ class OpenAILLM(LLMInterface):
 
         retries, retry_delay, timeout = self._resolve_retry_options(**kwargs)
 
+        tracer = LangFuseTracer.get()
+        ctx = get_llm_context()
+        loop_type = ctx.get("loop_type") or _infer_loop_type(self.model)
+        iteration = ctx.get("iteration", -1)
+
         for attempt in range(retries + 1):
             try:
-                return await asyncio.wait_for(self._call_api(params), timeout=timeout)
+                t0 = time.monotonic()
+                text, usage = await asyncio.wait_for(self._call_api(params), timeout=timeout)
+                latency_s = time.monotonic() - t0
+                tracer.log_generation(
+                    model=self.model,
+                    messages=formatted_messages,
+                    output=text or "",
+                    latency_s=latency_s,
+                    usage=usage,
+                    loop_type=loop_type,
+                    iteration=iteration,
+                )
+                return text
             except asyncio.TimeoutError:
                 if attempt < retries:
                     logger.warning(f"Timeout attempt {attempt + 1}/{retries + 1}, retrying...")
@@ -176,13 +200,22 @@ class OpenAILLM(LLMInterface):
                 else:
                     raise
 
-    async def _call_api(self, params: Dict[str, Any]) -> str:
+    async def _call_api(
+        self, params: Dict[str, Any]
+    ) -> Tuple[str, Optional[Dict[str, int]]]:
         loop = asyncio.get_running_loop()
         try:
             response = await loop.run_in_executor(
                 None, lambda: self.client.chat.completions.create(**params)
             )
-            return response.choices[0].message.content
+            usage: Optional[Dict[str, int]] = None
+            if response.usage:
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens or 0,
+                    "completion_tokens": response.usage.completion_tokens or 0,
+                    "total_tokens": response.usage.total_tokens or 0,
+                }
+            return response.choices[0].message.content, usage
         except (openai.BadRequestError, openai.APIStatusError) as exc:
             # Some Azure deployments only expose the Responses API.
             # Fall back transparently when Chat Completions is unsupported.
@@ -191,9 +224,11 @@ class OpenAILLM(LLMInterface):
             logger.info("Chat Completions unsupported; falling back to Responses API")
             return await self._call_api_via_responses(params)
 
-    async def _call_api_via_responses(self, params: Dict[str, Any]) -> str:
+    async def _call_api_via_responses(
+        self, params: Dict[str, Any]
+    ) -> Tuple[str, Optional[Dict[str, int]]]:
         """Translate a Chat-Completions-style *params* dict into a Responses API
-        call and return the assistant text."""
+        call and return (text, usage)."""
         messages = params.get("messages", [])
         input_items = self._convert_to_responses_input(
             [m for m in messages if m.get("role") != "system"]
@@ -219,7 +254,15 @@ class OpenAILLM(LLMInterface):
             None, lambda: self.client.responses.create(**resp_params)
         )
         text, _ = self._extract_responses_output(response)
-        return text or ""
+        usage: Optional[Dict[str, int]] = None
+        resp_usage = getattr(response, "usage", None)
+        if resp_usage:
+            usage = {
+                "prompt_tokens": getattr(resp_usage, "input_tokens", 0) or 0,
+                "completion_tokens": getattr(resp_usage, "output_tokens", 0) or 0,
+                "total_tokens": getattr(resp_usage, "total_tokens", 0) or 0,
+            }
+        return text or "", usage
 
     def _resolve_retry_options(self, **kwargs) -> Tuple[int, int, int]:
         """Resolve retry/timeout options from kwargs, falling back to instance defaults."""

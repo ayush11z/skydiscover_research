@@ -24,6 +24,7 @@ from skydiscover.search.evox.utils.coevolve_logging import (
 )
 from skydiscover.search.evox.utils.search_scorer import LogWindowScorer
 from skydiscover.search.evox.utils.variation_operator_generator import generate_variation_operators
+from skydiscover.llm.langfuse_tracer import reset_llm_context, set_llm_context
 from skydiscover.search.registry import get_program, setup_search
 from skydiscover.search.utils.discovery_utils import SerializableResult, load_database_from_file
 
@@ -352,11 +353,15 @@ class CoEvolutionController(DiscoveryController):
             "search_stats": search_stats["search_algorithm_stats"],
             "db_stats": search_stats["db_stats"],
         }
-        result = await self.search_controller.run_discovery(
-            start_iteration=iteration,
-            max_iterations=1,
-            post_process_result=False,
-        )
+        _ctx_token = set_llm_context("outer", solution_iter)
+        try:
+            result = await self.search_controller.run_discovery(
+                start_iteration=iteration,
+                max_iterations=1,
+                post_process_result=False,
+            )
+        finally:
+            reset_llm_context(_ctx_token)
 
         if not result or result.error:
             await handle_generation_failure(

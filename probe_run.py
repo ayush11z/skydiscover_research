@@ -1,30 +1,11 @@
 """
-probe_run.py  v5 — Complete state-change trace (extended)
-
-Traces EVERY function call and variable update across ALL files per iteration.
-
-Per-iteration tree (10 steps):
-  1. sample()                   — which parent/context selected, label key
-  2. _build_prompt() wrapper    — db.get_statistics() call, context dict assembly
-  3. EvoxContextBuilder.build_prompt() — prompt strings constructed
-  4. _call_llm()                — model, timing, response preview
-  5. _parse_llm_response()      — code extraction mode + result
-  6. evaluate_program()         — score, validity, timing
-  7. _create_child_program()    — Program dataclass fields set
-  8. database.add() + _update_best_program() — db mutations
-  9. log_prompt()               — prompt logging step
- 10. LogWindowScorer.record_step() — window updated
- 11. _should_evolve_search()    — stagnation check + tree flush
-
-Search evolution block (when triggered):
-  A. _reset_search_window()     — window boundary reset
-  B. _initialize_first_search_program() OR _generate_and_validate_search_algorithm()
-  C. _build_search_stats()      — context passed to search LLM
-  D. _finalize_pending_search() + _assign_search_score() — strategy scored
-  E. _switch_to_new_search_algorithm() — exec() + db swap
+probe_run.py  v6 — Complete state-change trace + per-iteration summary
 
 Usage:
     python probe_run.py --iters 20
+    python probe_run.py --iters 20 --model qwen2.5-coder:14b
+    python probe_run.py --iters 20 --model gemma3:12b
+    python probe_run.py --iters 20 --model llama3.1:8b
 """
 
 import argparse
@@ -33,6 +14,7 @@ import logging
 import os
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
@@ -52,13 +34,35 @@ for _h in [logging.StreamHandler(sys.stdout),
 def p(msg=""): _pl.info(msg)
 
 
+# ─── Strategy record ──────────────────────────────────────────────────────────
+class _StrategyRecord:
+    def __init__(self, name, start_iter):
+        self.name       = name
+        self.start_iter = start_iter
+        self.end_iter   = None   # set when strategy is switched away from
+        self.scores     = []     # combined_score of each accepted program generated under this strategy
+        self.jt         = None   # J_t computed when window closed
+
+
 # ─── State ────────────────────────────────────────────────────────────────────
 class _State:
     iter_num           = 0
-    events             = []       # (tag, file, msg) list for current iteration
+    events             = []        # (tag, file, msg) list for current iteration
     search_evo_num     = 0
-    in_search_evo      = False    # True while inside _evolve_search
-    active_search_code = ""       # current search algorithm source
+    in_search_evo      = False     # True while inside _evolve_search
+    active_search_code = ""        # current search algorithm source
+
+    # Per-iteration one-liner fields (reset at start of each iteration)
+    iter_label        = "—"        # "—" | "REFINE" | "DIVERGE"
+    iter_parent_id    = "?"
+    iter_parent_score = "?"
+    iter_child_score  = None       # None = failed/not yet set; str when set
+    iter_is_new_best  = False
+
+    # Strategy tracking
+    strat_log         = []         # list of _StrategyRecord; populated in _run()
+    all_scores_list   = []         # flat list of combined_score from all accepted programs
+    all_unique_scores = set()
 
 _S = _State()
 
@@ -98,8 +102,16 @@ def _print_search_evo_tree(events):
     _print_tree(f"SEARCH EVOLUTION #{_S.search_evo_num}  (outer loop triggered)",
                 events, border="▓")
 
+def _print_iter_oneliner():
+    """One compact line summarising this iteration — printed after the full tree."""
+    strat = _S.strat_log[-1].name if _S.strat_log else "?"
+    child = _S.iter_child_score if _S.iter_child_score is not None else "FAILED"
+    best  = "  ⭐ NEW BEST" if _S.iter_is_new_best else ""
+    p(f"  ── ITER {_S.iter_num:3d} │ {strat:<28} │ label={_S.iter_label:<7} │"
+      f" parent={_S.iter_parent_id}({_S.iter_parent_score}) → child={child}{best}")
+    p()
+
 def _print_state_snapshot(ctrl):
-    """Print full CoEvolutionController state after each iteration."""
     db     = ctrl.database
     sdb    = ctrl.search_controller.database
     scorer = ctrl.search_scorer
@@ -126,8 +138,8 @@ def _print_state_snapshot(ctrl):
                 if active_code and active_code != ctrl._search_initial_code
                 else f"initial_search_strategy  ({code_len} chars)")
 
-    window_size  = scorer.get_window_size()
-    start_score  = scorer.get_start_score()
+    window_size   = scorer.get_window_size()
+    start_score   = scorer.get_start_score()
     window_scores = [round(x, 4) for x in scorer._best_scores] if hasattr(scorer, "_best_scores") else "?"
 
     p(f"  {'─'*68}")
@@ -174,6 +186,50 @@ def _print_state_snapshot(ctrl):
     p(f"    best_strategy   : id={sbest_id}  score={sbest_score}")
     p(f"  {'─'*68}")
     p(f"")
+
+
+def _print_run_summary():
+    """End-of-run summary: per-strategy stats + unique score distribution."""
+    p(); p(f"{'━'*70}")
+    p(f"  RUN SUMMARY")
+    p(f"{'━'*70}")
+    p()
+
+    # ── Strategy deployment log ───────────────────────────────────────────────
+    p("  STRATEGY DEPLOYMENT LOG")
+    p(f"  {'Strategy':<30}  {'Iters':<10}  {'N':>3}  Scores generated                          J_t")
+    p(f"  {'─'*30}  {'─'*10}  {'─'*3}  {'─'*40}  {'─'*8}")
+    for sr in _S.strat_log:
+        end_s    = str(sr.end_iter) if sr.end_iter is not None else "end"
+        ir       = f"{sr.start_iter}–{end_s}"
+        n        = len(sr.scores)
+        scores_s = ", ".join(f"{s:.4f}" for s in sr.scores[:6])
+        if len(sr.scores) > 6:
+            scores_s += f" (+{len(sr.scores)-6} more)"
+        jt_s = str(sr.jt) if sr.jt is not None else "pending"
+        p(f"  {sr.name:<30}  {ir:<10}  {n:>3}  {scores_s:<42}  {jt_s}")
+    p()
+
+    # ── Unique score distribution ─────────────────────────────────────────────
+    p("  ALL UNIQUE combined_score VALUES SEEN  (generated programs only, excl. initial)")
+    sorted_scores = sorted(s for s in _S.all_unique_scores if s is not None)
+    if sorted_scores:
+        p(f"    [{', '.join(f'{s:.4f}' for s in sorted_scores)}]")
+        p(f"    → {len(sorted_scores)} unique value(s)  across {len(_S.all_scores_list)} accepted program(s)")
+        p(f"    → range: {sorted_scores[0]:.4f} – {sorted_scores[-1]:.4f}")
+        cnt = Counter(_S.all_scores_list)
+        top = cnt.most_common(5)
+        p(f"    → frequency: {', '.join(f'{v:.4f}({c}×)' for v, c in top)}")
+        repeats = [(v, c) for v, c in cnt.items() if c > 1]
+        if repeats:
+            p(f"    ⚠  REPEATED scores (LLM stuck?): "
+              f"{', '.join(f'{v:.4f}({c}×)' for v,c in sorted(repeats, key=lambda x:-x[1]))}")
+        else:
+            p(f"    ✓  No repeated scores — LLM is exploring diverse solutions")
+    else:
+        p("    (no accepted programs recorded)")
+    p(f"{'━'*70}")
+    p()
 
 
 # ─── Patches ─────────────────────────────────────────────────────────────────
@@ -237,11 +293,16 @@ def _install_patches():
         p("└─ done"); p()
     CoEvolutionController._generate_variation_operators = _patched_gen
 
-    # ── 3. _run_iteration: clear events ──────────────────────────────────────
+    # ── 3. _run_iteration: clear events + reset per-iter one-liner state ──────
     _orig_iter = DiscoveryController._run_iteration
     async def _patched_iter(self, iteration, retry_times=1):
         _S.iter_num = iteration
         _S.events.clear()
+        _S.iter_label        = "—"
+        _S.iter_parent_id    = "?"
+        _S.iter_parent_score = "?"
+        _S.iter_child_score  = None
+        _S.iter_is_new_best  = False
         result = await _orig_iter(self, iteration, retry_times=retry_times)
         return result
     DiscoveryController._run_iteration = _patched_iter
@@ -271,6 +332,15 @@ def _install_patches():
                 lu = "code does NOT use DIVERGE_LABEL/REFINE_LABEL → will always return empty key"
             else:
                 lu = "(initial strategy hardcoded → always returns empty key)"
+
+            # ── capture for per-iter one-liner ────────────────────────────────
+            if not _S.in_search_evo:
+                if   label_key == diverge and diverge: _S.iter_label = "DIVERGE"
+                elif label_key == refine  and refine:  _S.iter_label = "REFINE"
+                else:                                  _S.iter_label = "—"
+                _S.iter_parent_id    = str(getattr(parent, "id", "?"))[:8]
+                _S.iter_parent_score = _score(parent)
+            # ─────────────────────────────────────────────────────────────────
 
             msg = (
                 f"DB class    : {type(db).__name__}  strategy_file: {strategy_name}\n"
@@ -486,6 +556,19 @@ def _install_patches():
         best    = self.database.get_best_program()
         best_sc = _f(best.metrics.get("combined_score")) if (best and best.metrics) else "?"
         is_best = (child.get("id") == getattr(best, "id", None))
+
+        # ── capture for one-liner + strategy log ──────────────────────────────
+        if not _S.in_search_evo:
+            _S.iter_child_score = _f(score)
+            _S.iter_is_new_best = is_best
+            if score is not None and isinstance(score, (int, float)):
+                sc = round(score, 4)
+                _S.all_scores_list.append(sc)
+                _S.all_unique_scores.add(sc)
+                if _S.strat_log:
+                    _S.strat_log[-1].scores.append(sc)
+        # ─────────────────────────────────────────────────────────────────────
+
         msg = (
             f"new program        : id={str(child.get('id','?'))[:8]}  score={_f(score)}"
             f"{'  ⭐ NEW BEST' if is_best else ''}\n"
@@ -588,6 +671,10 @@ def _install_patches():
         if _S.events:
             _print_iteration_tree()
 
+        # ── per-iteration one-liner ───────────────────────────────────────────
+        _print_iter_oneliner()
+        # ─────────────────────────────────────────────────────────────────────
+
         delta = pre_curr - (pre_last or 0)
         if pre_last is None:
             rule = "first call → stagnant reset to 0 (no comparison yet)"
@@ -656,6 +743,12 @@ def _install_patches():
 
         await _orig_init_first(self, solution_iter)
 
+        # ── capture initial strategy J_t ──────────────────────────────────────
+        if _S.strat_log:
+            _S.strat_log[0].jt       = _f(self._best_search_score)
+            _S.strat_log[0].end_iter = solution_iter
+        # ─────────────────────────────────────────────────────────────────────
+
         p(f"  │  VARIABLES UPDATED:")
         p(f"  │    _num_search_evolutions : {pre_evos} → {self._num_search_evolutions}")
         p(f"  │    _best_search_score     : {_f(pre_best)} → {_f(self._best_search_score)}"
@@ -711,6 +804,11 @@ def _install_patches():
         if pend:
             computed = (pend.child_program_dict or {}).get("metrics", {}).get("combined_score")
 
+        # ── capture J_t for current pending strategy ──────────────────────────
+        if _S.strat_log and computed is not None:
+            _S.strat_log[-1].jt = _f(computed)
+        # ─────────────────────────────────────────────────────────────────────
+
         p(f"  │  _assign_search_score():")
         p(f"  │    start_score   : {_f(start_score)}  ← score when this strategy first activated")
         p(f"  │    end_score     : {_f(end_score)}   ← current best solution score")
@@ -759,14 +857,12 @@ def _install_patches():
         p(f"  │  search_controller.database: {len(self.search_controller.database.programs)} strategies stored")
         p(f"  │  CALLS → _build_search_stats() then search_controller.run_discovery(max_iterations=1)")
         p(f"  │          then search_strategy_evaluator.evaluate() to validate the new class")
-        pre_pend = self._pending_search_result
 
         await _orig_gv(self, solution_iter)
 
         post_pend = self._pending_search_result
         p(f"  │  RESULT:")
-        p(f"  │    _pending_search_result : {'NONE → was' if not post_pend else 'SET'}"
-          f"{'generation failed/invalid' if not post_pend else ' → new strategy ready'}")
+        p(f"  │    _pending_search_result : {'NONE → generation failed/invalid' if not post_pend else 'SET → new strategy ready'}")
         p(f"  └─ done")
         p()
     CoEvolutionController._generate_and_validate_search_algorithm = _patched_gv
@@ -783,6 +879,13 @@ def _install_patches():
         if success:
             _S.active_search_code = new_code
             _install_sample_probe._fn(self.database, "evolved_strategy")
+
+            # ── manage strategy log ───────────────────────────────────────────
+            if _S.strat_log:
+                _S.strat_log[-1].end_iter = _S.iter_num  # close current strategy
+            new_name = f"evolved_{_S.search_evo_num}"
+            _S.strat_log.append(_StrategyRecord(new_name, _S.iter_num + 1))
+            # ─────────────────────────────────────────────────────────────────
 
         p(); p(f"  {'─'*68}")
         p(f"  _switch_to_new_search_algorithm()  success={success}")
@@ -839,7 +942,7 @@ def _install_patches():
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
-async def _run(iters, output_dir):
+async def _run(iters, output_dir, model):
     install_probe = _install_patches()
 
     from skydiscover.config import load_config, EvoxDatabaseConfig
@@ -858,19 +961,26 @@ async def _run(iters, output_dir):
     config.checkpoint_interval = iters
     config.monitor.enabled = False
 
-    # Solution LLM = gemma3:12b (writes circle packing code)
-    # Search strategy LLM = qwen2.5-coder:14b (evolves sample() — loaded independently
-    #   from search.yaml via EvoxDatabaseConfig.config_path, since share_llm=False)
-    config.llm.models[0].name = "gemma3:12b"
+    # Solution LLM — configurable via --model (default: qwen2.5-coder:14b)
+    # Search/guide LLM — read from search.yaml (qwen2.5-coder:14b)
+    config.llm.models[0].name = model
 
     with open(CPCFG) as f:
         cp = yaml.safe_load(f)
     config.context_builder.system_message = cp.get("prompt", {}).get("system_message", "")
     config.context_builder.template = "evox"
 
+    # Read guide model name from search.yaml for display
+    guide_model = "qwen2.5-coder:14b"
+    try:
+        guide_model = config.llm.guide_models[0].name if config.llm.guide_models else guide_model
+    except Exception:
+        pass
+
     p(f"{'━'*70}")
-    p(f"  PROBE RUN v5 — evox co-evolution  ({iters} iterations)")
-    p(f"  LLM: {[m.name for m in config.llm.models]}   output → {output_dir}")
+    p(f"  PROBE RUN v6 — evox co-evolution  ({iters} iterations)")
+    p(f"  Solution LLM : {model}")
+    p(f"  Guide LLM    : {guide_model}   output → {output_dir}")
     p(f"{'━'*70}"); p()
     p("  FULL PIPELINE per iteration (23 probes across all files):")
     p("  controller.py → run_discovery() loop:")
@@ -904,22 +1014,34 @@ async def _run(iters, output_dir):
         config=config,
         output_dir=output_dir,
     )
+
+    # Initialise strategy tracking before the run starts
+    _S.strat_log         = [_StrategyRecord("initial_search_strategy", 0)]
+    _S.all_scores_list   = []
+    _S.all_unique_scores = set()
+
     install_probe(runner.database, "initial_search_strategy")
 
     best = await runner.run(iterations=iters)
+
     p(); p(f"{'━'*70}")
     p(f"  RUN COMPLETE  best: id={str(getattr(best,'id','?'))[:8]}"
       f"  score={_f(best.metrics.get('combined_score')) if best and best.metrics else '?'}")
     p(f"  log → {PROBE_LOG}")
     p(f"{'━'*70}")
 
+    _print_run_summary()
+
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--iters", type=int, default=20)
-    ap.add_argument("--output-dir", default="outputs/probe_run_v5")
+    ap.add_argument("--iters",      type=int, default=20)
+    ap.add_argument("--output-dir", default="outputs/probe_run_v6")
+    ap.add_argument("--model",      default="qwen2.5-coder:14b",
+                    help="Solution LLM model name  (default: qwen2.5-coder:14b)\n"
+                         "  examples: qwen2.5-coder:14b  gemma3:12b  llama3.1:8b  deepseek-coder-v2:16b")
     args = ap.parse_args()
-    asyncio.run(_run(args.iters, args.output_dir))
+    asyncio.run(_run(args.iters, args.output_dir, args.model))
 
 if __name__ == "__main__":
     main()
