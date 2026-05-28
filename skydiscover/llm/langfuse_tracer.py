@@ -153,24 +153,39 @@ class LangFuseTracer:
         """
         if not self._client:
             return
+        _usage = usage or {}
+        _tokens = {
+            "input": _usage.get("prompt_tokens", 0),
+            "output": _usage.get("completion_tokens", 0),
+            "total": _usage.get("total_tokens", 0),
+        }
+        metadata = {
+            "loop_type": loop_type,
+            "iteration": iteration,
+            "latency_s": round(latency_s, 3),
+        }
         try:
-            _usage = usage or {}
-            self._client.generation(
-                name=f"{loop_type}_loop",
-                model=model,
-                input=messages,
-                output=output,
-                usage={
-                    "input": _usage.get("prompt_tokens", 0),
-                    "output": _usage.get("completion_tokens", 0),
-                    "total": _usage.get("total_tokens", 0),
-                    "unit": "TOKENS",
-                },
-                metadata={
-                    "loop_type": loop_type,
-                    "iteration": iteration,
-                    "latency_s": round(latency_s, 3),
-                },
-            )
+            if hasattr(self._client, "start_observation"):
+                # langfuse v3 / v4 — OpenTelemetry-based API.
+                gen = self._client.start_observation(
+                    name=f"{loop_type}_loop",
+                    as_type="generation",
+                    input=messages,
+                    output=output,
+                    model=model,
+                    usage_details=_tokens,
+                    metadata=metadata,
+                )
+                gen.end()
+            elif hasattr(self._client, "generation"):
+                # langfuse v2 — legacy direct API.
+                self._client.generation(
+                    name=f"{loop_type}_loop",
+                    model=model,
+                    input=messages,
+                    output=output,
+                    usage={**_tokens, "unit": "TOKENS"},
+                    metadata=metadata,
+                )
         except Exception as exc:
-            logger.debug("LangFuse log error (non-fatal): %s", exc)
+            logger.warning("LangFuse log error (non-fatal): %s", exc)

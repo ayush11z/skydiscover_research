@@ -1,0 +1,75 @@
+---
+name: AdaEvolveDatabase._migrate_legacy
+description: method in skydiscover/search/adaevolve/database.py (adaevolve)
+metadata:
+  type: project
+---
+
+# AdaEvolveDatabase._migrate_legacy
+
+**File:** `skydiscover/search/adaevolve/database.py:844`  
+**Kind:** method  
+**Layer:** #adaevolve
+
+## Source
+````python
+    def _migrate_legacy(self) -> None:
+        """Legacy migration: copy single best program to next island."""
+        migrants: List[Tuple[int, Program]] = []
+
+        for i in range(self.num_islands):
+            if self.islands[i]:
+                best = max(self.islands[i], key=self._get_fitness)
+                migrants.append((i, best))
+
+        for src_island, program in migrants:
+            dest_island = (src_island + 1) % self.num_islands
+
+            if self._has_duplicate_solution(dest_island, program.solution):
+                continue
+
+            migrant = Program(
+                id=str(uuid.uuid4()),
+                solution=program.solution,
+                language=program.language,
+                metrics=program.metrics.copy() if program.metrics else {},
+                iteration_found=program.iteration_found,
+                parent_id=program.id,
+                generation=program.generation,
+                metadata={"migrated_from": src_island, "migrated_to": dest_island},
+            )
+
+            self.add(migrant, parent_id=None, target_island=dest_island)
+````
+
+## → Calls
+- [[AdaEvolveDatabase._get_fitness]]
+- [[AdaEvolveDatabase._has_duplicate_solution]]
+- [[AdaEvolveDatabase.add]]
+- [[AgenticGenerator.__init__]]
+- [[CheckpointManager.__init__]]
+- [[CodeDiversity.__init__]]
+- [[ContainerizedEvaluator.__init__]]
+- [[ContextBuilder.__init__]]
+- [[DiscoveryController.__init__]]
+- [[Evaluator.__init__]]
+- [[HumanFeedbackReader.__init__]]
+- [[HybridDiversity.__init__]]
+- [[LLMJudge.__init__]]
+- [[LLMPool.__init__]]
+- [[LangFuseTracer.__init__]]
+- [[LogWindowScorer.__init__]]
+- [[MetricDiversity.__init__]]
+- [[MonitorServer.__init__]]
+- [[OpenAILLM.__init__]]
+- [[ParadigmGenerator.__init__]]
+- [[ProgramDatabase.__init__]]
+- [[Runner.__init__]]
+- [[TaskPool.__init__]]
+- [[TemplateManager.__init__]]
+- [[UnifiedArchive.__init__]]
+- [[_FinalResult.__init__]]
+- [[base_database.Program]]
+
+## ← Called by
+- [[AdaEvolveDatabase._migrate]]

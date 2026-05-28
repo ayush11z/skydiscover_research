@@ -1,0 +1,48 @@
+---
+name: ProgramDatabase.get_top_programs
+description: method in skydiscover/search/base_database.py (database)
+metadata:
+  type: project
+---
+
+# ProgramDatabase.get_top_programs
+
+**File:** `skydiscover/search/base_database.py:275`  
+**Kind:** method  
+**Layer:** #database
+
+## Source
+````python
+    def get_top_programs(self, n: int = 10, metric: Optional[str] = None) -> List[Program]:
+        """Get the top N programs, optionally by a specific metric."""
+        if not self.programs:
+            return []
+
+        if metric:
+            sorted_programs = sorted(
+                [p for p in self.programs.values() if metric in p.metrics],
+                key=lambda p: p.metrics[metric],
+                reverse=True,
+            )
+        else:
+            sorted_programs = sorted(
+                self.programs.values(),
+                key=lambda p: get_score(p.metrics),
+                reverse=True,
+            )
+
+        return sorted_programs[:n]
+````
+
+## → Calls
+- [[CheckpointManager.load]]
+- [[EvaluationResult.metrics]]
+- [[Program.metrics]]
+- [[base_database.Program]]
+- [[metrics.get_score]]
+
+## ← Called by
+- [[BeamSearchDatabase._validate_and_reconstruct_beam]]
+- [[BeamSearchDatabase.sample]]
+- [[BestOfNDatabase.sample]]
+- [[TopKDatabase.sample]]

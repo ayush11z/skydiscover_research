@@ -46,8 +46,9 @@ external = [
     "litellm>=1.81",  # gepa[full] needs litellm, but uv override-dependencies strips the [full] extra
 ]
 observability = [
-    "langfuse>=2.0.0",
+    "langfuse>=2.0.0",  # tracer auto-detects v2 (.generation) vs v3/v4 (.start_observation)
     "viztracer>=0.16.0",
+    "snoop>=0.6.0",
 ]
 dev = [
     "pytest>=7.0.0",

@@ -1,0 +1,114 @@
+digraph EvoX {
+    graph [rankdir=TB, ranksep=0.8, nodesep=0.5, fontname="Helvetica"];
+    node [shape=box, style="filled,rounded", fontname="Helvetica", fontsize=11];
+    edge [color="#555555", fontsize=9];
+
+    subgraph "cluster_runner" {
+        label="Runner";
+        style="filled,rounded";
+        fillcolor="#dae8fc88";
+        color="#dae8fc";
+        "skydiscover__runner__Runner" [label="Runner", fillcolor="#dae8fc"];
+        "skydiscover__runner__Runner___add_initial_program" [label="_add_initial_program", fillcolor="#dae8fc"];
+        "skydiscover__runner__Runner___load_initial_program" [label="_load_initial_program", fillcolor="#dae8fc"];
+        "skydiscover__runner__Runner__run" [label="run", fillcolor="#dae8fc"];
+    }
+
+    subgraph "cluster_controller" {
+        label="Discovery Controller (inner loop)";
+        style="filled,rounded";
+        fillcolor="#d5e8d488";
+        color="#d5e8d4";
+        "skydiscover__search__default_discovery_controller__DiscoveryController" [label="DiscoveryController", fillcolor="#d5e8d4"];
+        "skydiscover__search__default_discovery_controller__DiscoveryController___build_prompt" [label="_build_prompt", fillcolor="#d5e8d4"];
+        "skydiscover__search__default_discovery_controller__DiscoveryController___call_llm" [label="_call_llm", fillcolor="#d5e8d4"];
+        "skydiscover__search__default_discovery_controller__DiscoveryController___parse_llm_response" [label="_parse_llm_response", fillcolor="#d5e8d4"];
+        "skydiscover__search__default_discovery_controller__DiscoveryController___run_iteration" [label="_run_iteration", fillcolor="#d5e8d4"];
+        "skydiscover__search__default_discovery_controller__DiscoveryController__run_discovery" [label="run_discovery", fillcolor="#d5e8d4"];
+        "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" [label="run_discovery", fillcolor="#d5e8d4"];
+    }
+
+    subgraph "cluster_evox" {
+        label="EvoX / Co-Evolution (outer loop)";
+        style="filled,rounded";
+        fillcolor="#fff2cc88";
+        color="#fff2cc";
+        "skydiscover__search__evox__controller__CoEvolutionController" [label="CoEvolutionController", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___assign_search_score" [label="_assign_search_score", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___evolve_search" [label="_evolve_search", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___finalize_pending_search" [label="_finalize_pending_search", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___generate_and_validate_search_algorithm" [label="_generate_and_validate_search_algorithm", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___generate_variation_operators" [label="_generate_variation_operators", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___should_evolve_search" [label="_should_evolve_search", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__controller__CoEvolutionController___switch_to_new_search_algorithm" [label="_switch_to_new_search_algorithm", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__utils__search_scorer__LogWindowScorer" [label="LogWindowScorer", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__utils__search_scorer__LogWindowScorer__record_step" [label="record_step", fillcolor="#fff2cc"];
+        "skydiscover__search__evox__utils__search_scorer__LogWindowScorer__reset_window" [label="reset_window", fillcolor="#fff2cc"];
+    }
+
+    subgraph "cluster_database" {
+        label="Program Database";
+        style="filled,rounded";
+        fillcolor="#e1d5e788";
+        color="#e1d5e7";
+        "skydiscover__search__base_database__ProgramDatabase" [label="ProgramDatabase", fillcolor="#e1d5e7"];
+        "skydiscover__search__base_database__ProgramDatabase__add" [label="add", fillcolor="#e1d5e7"];
+        "skydiscover__search__base_database__ProgramDatabase__sample" [label="sample", fillcolor="#e1d5e7"];
+    }
+
+    subgraph "cluster_llm" {
+        label="LLM Layer";
+        style="filled,rounded";
+        fillcolor="#f8cecc88";
+        color="#f8cecc";
+        "skydiscover__llm__llm_pool__LLMPool" [label="LLMPool", fillcolor="#f8cecc"];
+        "skydiscover__llm__llm_pool__LLMPool___sample_model" [label="_sample_model", fillcolor="#f8cecc"];
+        "skydiscover__llm__llm_pool__LLMPool__generate" [label="generate", fillcolor="#f8cecc"];
+        "skydiscover__llm__openai__OpenAILLM" [label="OpenAILLM", fillcolor="#f8cecc"];
+        "skydiscover__llm__openai__OpenAILLM___call_api" [label="_call_api", fillcolor="#f8cecc"];
+        "skydiscover__llm__openai__OpenAILLM___generate_text" [label="_generate_text", fillcolor="#f8cecc"];
+        "skydiscover__llm__openai__OpenAILLM__generate" [label="generate", fillcolor="#f8cecc"];
+    }
+
+    subgraph "cluster_tracer" {
+        label="LangFuse Observability";
+        style="filled,rounded";
+        fillcolor="#ffe6cc88";
+        color="#ffe6cc";
+        "skydiscover__llm__langfuse_tracer__LangFuseTracer" [label="LangFuseTracer", fillcolor="#ffe6cc"];
+        "skydiscover__llm__langfuse_tracer__LangFuseTracer__log_generation" [label="log_generation", fillcolor="#ffe6cc"];
+    }
+
+    "skydiscover__llm__llm_pool__LLMPool__generate" -> "skydiscover__llm__llm_pool__LLMPool___sample_model";
+    "skydiscover__llm__llm_pool__LLMPool__generate" -> "skydiscover__llm__llm_pool__LLMPool__generate";
+    "skydiscover__llm__llm_pool__LLMPool__generate" -> "skydiscover__llm__openai__OpenAILLM__generate";
+    "skydiscover__llm__openai__OpenAILLM___generate_text" -> "skydiscover__llm__langfuse_tracer__LangFuseTracer__log_generation";
+    "skydiscover__llm__openai__OpenAILLM___generate_text" -> "skydiscover__llm__openai__OpenAILLM___call_api";
+    "skydiscover__llm__openai__OpenAILLM__generate" -> "skydiscover__llm__openai__OpenAILLM___generate_text";
+    "skydiscover__runner__Runner___add_initial_program" -> "skydiscover__runner__Runner__run";
+    "skydiscover__runner__Runner___add_initial_program" -> "skydiscover__search__base_database__ProgramDatabase__add";
+    "skydiscover__runner__Runner__run" -> "skydiscover__runner__Runner___add_initial_program";
+    "skydiscover__runner__Runner__run" -> "skydiscover__search__default_discovery_controller__DiscoveryController__run_discovery";
+    "skydiscover__search__default_discovery_controller__DiscoveryController___call_llm" -> "skydiscover__llm__llm_pool__LLMPool__generate";
+    "skydiscover__search__default_discovery_controller__DiscoveryController___run_iteration" -> "skydiscover__search__base_database__ProgramDatabase__sample";
+    "skydiscover__search__default_discovery_controller__DiscoveryController___run_iteration" -> "skydiscover__search__default_discovery_controller__DiscoveryController___build_prompt";
+    "skydiscover__search__default_discovery_controller__DiscoveryController___run_iteration" -> "skydiscover__search__default_discovery_controller__DiscoveryController___call_llm";
+    "skydiscover__search__default_discovery_controller__DiscoveryController___run_iteration" -> "skydiscover__search__default_discovery_controller__DiscoveryController___parse_llm_response";
+    "skydiscover__search__evox__controller__CoEvolutionController" -> "skydiscover__search__default_discovery_controller__DiscoveryController";
+    "skydiscover__search__evox__controller__CoEvolutionController___evolve_search" -> "skydiscover__search__evox__controller__CoEvolutionController___finalize_pending_search";
+    "skydiscover__search__evox__controller__CoEvolutionController___evolve_search" -> "skydiscover__search__evox__controller__CoEvolutionController___generate_and_validate_search_algorithm";
+    "skydiscover__search__evox__controller__CoEvolutionController___finalize_pending_search" -> "skydiscover__search__evox__controller__CoEvolutionController___assign_search_score";
+    "skydiscover__search__evox__controller__CoEvolutionController___generate_and_validate_search_algorithm" -> "skydiscover__search__default_discovery_controller__DiscoveryController";
+    "skydiscover__search__evox__controller__CoEvolutionController___generate_and_validate_search_algorithm" -> "skydiscover__search__default_discovery_controller__DiscoveryController__run_discovery";
+    "skydiscover__search__evox__controller__CoEvolutionController___generate_and_validate_search_algorithm" -> "skydiscover__search__evox__controller__CoEvolutionController___switch_to_new_search_algorithm";
+    "skydiscover__search__evox__controller__CoEvolutionController___generate_variation_operators" -> "skydiscover__llm__llm_pool__LLMPool";
+    "skydiscover__search__evox__controller__CoEvolutionController___generate_variation_operators" -> "skydiscover__search__default_discovery_controller__DiscoveryController";
+    "skydiscover__search__evox__controller__CoEvolutionController___switch_to_new_search_algorithm" -> "skydiscover__search__default_discovery_controller__DiscoveryController";
+    "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" -> "skydiscover__search__default_discovery_controller__DiscoveryController";
+    "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" -> "skydiscover__search__default_discovery_controller__DiscoveryController___run_iteration";
+    "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" -> "skydiscover__search__evox__controller__CoEvolutionController___evolve_search";
+    "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" -> "skydiscover__search__evox__controller__CoEvolutionController___finalize_pending_search";
+    "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" -> "skydiscover__search__evox__controller__CoEvolutionController___generate_variation_operators";
+    "skydiscover__search__evox__controller__CoEvolutionController__run_discovery" -> "skydiscover__search__evox__controller__CoEvolutionController___should_evolve_search";
+    "skydiscover__search__evox__utils__search_scorer__LogWindowScorer__record_step" -> "skydiscover__search__evox__utils__search_scorer__LogWindowScorer__reset_window";
+}

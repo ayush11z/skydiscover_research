@@ -1,0 +1,205 @@
+{
+  "collapse-filter": false,
+  "search": "path:graphs/functions  ",
+  "showTags": true,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#outer-loop",
+      "color": {
+        "a": 1,
+        "rgb": 15079755
+      }
+    },
+    {
+      "query": "tag:#inner-loop",
+      "color": {
+        "a": 1,
+        "rgb": 3978315
+      }
+    },
+    {
+      "query": "tag:#evox",
+      "color": {
+        "a": 1,
+        "rgb": 16089649
+      }
+    },
+    {
+      "query": "tag:#llm",
+      "color": {
+        "a": 1,
+        "rgb": 4416472
+      }
+    },
+    {
+      "query": "tag:#database",
+      "color": {
+        "a": 1,
+        "rgb": 9510580
+      }
+    },
+    {
+      "query": "tag:#context-builder",
+      "color": {
+        "a": 1,
+        "rgb": 4379892
+      }
+    },
+    {
+      "query": "tag:#evaluation",
+      "color": {
+        "a": 1,
+        "rgb": 16769305
+      }
+    },
+    {
+      "query": "tag:#observability",
+      "color": {
+        "a": 1,
+        "rgb": 15741670
+      }
+    },
+    {
+      "query": "tag:#runner",
+      "color": {
+        "a": 1,
+        "rgb": 117
+      }
+    },
+    {
+      "query": "tag:#utils",
+      "color": {
+        "a": 1,
+        "rgb": 10117924
+      }
+    },
+    {
+      "query": "tag:#config",
+      "color": {
+        "a": 1,
+        "rgb": 8421376
+      }
+    },
+    {
+      "query": "tag:#search",
+      "color": {
+        "a": 1,
+        "rgb": 4626832
+      }
+    },
+    {
+      "query": "tag:#search-core",
+      "color": {
+        "a": 1,
+        "rgb": 0
+      }
+    },
+    {
+      "query": "tag:#search-utils",
+      "color": {
+        "a": 1,
+        "rgb": 11206595
+      }
+    },
+    {
+      "query": "tag:#adaevolve",
+      "color": {
+        "a": 1,
+        "rgb": 12578629
+      }
+    },
+    {
+      "query": "tag:#beam-search",
+      "color": {
+        "a": 1,
+        "rgb": 16432852
+      }
+    },
+    {
+      "query": "tag:#best-of-n",
+      "color": {
+        "a": 1,
+        "rgb": 16767153
+      }
+    },
+    {
+      "query": "tag:#topk",
+      "color": {
+        "a": 1,
+        "rgb": 14466815
+      }
+    },
+    {
+      "query": "tag:#gepa",
+      "color": {
+        "a": 1,
+        "rgb": 8388608
+      }
+    },
+    {
+      "query": "tag:#openevolve",
+      "color": {
+        "a": 1,
+        "rgb": 16775880
+      }
+    },
+    {
+      "query": "tag:#claude-code",
+      "color": {
+        "a": 1,
+        "rgb": 11119017
+      }
+    },
+    {
+      "query": "tag:#monitor",
+      "color": {
+        "a": 1,
+        "rgb": 46296
+      }
+    },
+    {
+      "query": "tag:#external",
+      "color": {
+        "a": 1,
+        "rgb": 8355711
+      }
+    },
+    {
+      "query": "tag:#extras",
+      "color": {
+        "a": 1,
+        "rgb": 12632256
+      }
+    },
+    {
+      "query": "tag:#cli",
+      "color": {
+        "a": 1,
+        "rgb": 3100495
+      }
+    },
+    {
+      "query": "tag:#api",
+      "color": {
+        "a": 1,
+        "rgb": 16744206
+      }
+    }
+  ],
+  "collapse-display": true,
+  "showArrow": false,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.518713248970312,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 0.13589177679871423,
+  "close": false
+}

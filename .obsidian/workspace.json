@@ -1,0 +1,229 @@
+{
+  "main": {
+    "id": "ef00aa6489d278f7",
+    "type": "split",
+    "children": [
+      {
+        "id": "89e23b0734489409",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "38ac6d4669acbd06",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          },
+          {
+            "id": "1a2146fba220ca4d",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "12fd4832d6514dec",
+    "type": "split",
+    "children": [
+      {
+        "id": "9378f55c8779775a",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "c225cd17d38d528b",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "a3a4d0f11e92292d",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "c21fa6ebd4fe2d01",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 200
+  },
+  "right": {
+    "id": "868959f3c90def31",
+    "type": "split",
+    "children": [
+      {
+        "id": "dfc17d161173d821",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "780b951dc4019475",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "6235c58dc9b10146",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "ccb8c48825760066",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "d69ff1adf6e7cd97",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "7e796cbb6ae78c96",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "1a2146fba220ca4d",
+  "lastOpenFiles": [
+    "traces/evox_trace_colored.json",
+    "scripts/color_trace.py",
+    "scripts/gen_graph_colors.py",
+    "graphs/functions/shinkaevolve_backend.run.md",
+    "benchmarks/gpu_mode/trimul/README.md",
+    "graphs/inner_outer/IO-wrapper.run.md",
+    "graphs/inner_outer/IO-variation_operator_generator.main.md",
+    "graphs/inner_outer/IO-variation_operator_generator.load_initial_program.md",
+    "graphs/inner_outer/IO-variation_operator_generator.load_evaluator.md",
+    "graphs/inner_outer/IO-variation_operator_generator.load_config.md",
+    "graphs/inner_outer/IO-variation_operator_generator.get_available_packages.md",
+    "graphs/inner_outer/IO-variation_operator_generator.generate_variation_operators.md",
+    "graphs/inner_outer/IO-variation_operator_generator._parse_combined_response.md",
+    "graphs/inner_outer/IO-variation_operator_generator._operators_from_response.md",
+    "graphs/inner_outer/IO-variation_operator_generator._extract_examples.md",
+    "graphs/inner_outer/IO-variation_operator_generator._build_operator_prompt.md",
+    "graphs/inner_outer/IO-variation_operator_generator.COMBINED_SYSTEM_PROMPT.md",
+    "graphs/inner_outer/IO-utils.prog_attr.md",
+    "graphs/inner_outer/IO-utils.format_artifacts.md",
+    "graphs/inner_outer/IO-utils.TemplateManager.md",
+    "graphs/inner_outer/IO-template.REFINE_TEMPLATE.md",
+    "graphs/inner_outer/IO-template.DIVERGE_TEMPLATE.md",
+    "graphs/inner_outer/IO-template.DEFAULT_REFINE_TEMPLATE.md",
+    "graphs/inner_outer/IO-template.DEFAULT_DIVERGE_TEMPLATE.md",
+    "graphs/inner_outer/IO-search_strategy_evaluator.result.md",
+    "graphs/inner_outer/IO-search_strategy_evaluator.fast_mode.md",
+    "graphs/inner_outer/IO-search_strategy_evaluator.evaluate_batch.md",
+    "graphs/inner_outer/IO-search_strategy_evaluator.evaluate.md",
+    "graphs/inner_outer",
+    "graphs/inner_loop",
+    "scripts/__pycache__/gen_obsidian_notes.cpython-311.pyc",
+    "scripts/__pycache__",
+    "scripts/gen_obsidian_auto.py",
+    "outputs/trace_run/checkpoints/checkpoint_15/programs/e79fe8aa-9d72-4659-bdd9-66d2a0b4439b.json",
+    "outputs/trace_run/checkpoints/checkpoint_15/programs/e46b9c98-0cc6-4b27-b252-a703cce78a2b.json",
+    "outputs/trace_run/checkpoints/checkpoint_15/programs/d5c63640-b88d-41ed-9740-1d84fd279296.json"
+  ]
+}
